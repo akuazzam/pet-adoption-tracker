@@ -4,11 +4,19 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import os
 
-DB_NAME = os.getenv("POSTGRES_DB", "cs440")
-DB_USER = os.getenv("POSTGRES_USER", "postgres")
-DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "450720")
-DB_HOST = os.getenv("POSTGRES_HOST", "localhost")
-DB_PORT = os.getenv("POSTGRES_PORT", "5433")
+from dotenv import load_dotenv
+
+load_dotenv() 
+
+
+
+DB_NAME = os.getenv("POSTGRES_DB")
+DB_USER = os.getenv("POSTGRES_USER")
+DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+DB_HOST = os.getenv("POSTGRES_HOST")
+DB_PORT = os.getenv("POSTGRES_PORT")
+
+
 
 def get_connection():
     return psycopg2.connect(

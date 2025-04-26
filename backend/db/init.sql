@@ -1,3 +1,7 @@
+-- Create the cs440 database and switch to it
+
+
+
 -- Users table
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
