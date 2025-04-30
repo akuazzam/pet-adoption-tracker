@@ -1,6 +1,7 @@
 version: "3.8"
 
 services:
+  # PostgreSQL Database
   db:
     image: postgres:13
     container_name: pet_adoption_db
@@ -15,6 +16,7 @@ services:
     networks:
       - backend
 
+  # pgAdmin for PostgreSQL management
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin
@@ -25,6 +27,27 @@ services:
       - "5050:80"
     depends_on:
       - db
+    networks:
+      - backend
+
+  # MongoDB for document storage
+  mongo:
+    image: mongo
+    container_name: pet_mongo
+    ports:
+      - "27017:27017"
+    networks:
+      - backend
+
+  # Neo4j for graph-based recommendations
+  neo4j:
+    image: neo4j:5.12
+    container_name: pet_neo4j
+    environment:
+      NEO4J_AUTH: neo4j/testpass  # Replace with secure password
+    ports:
+      - "7474:7474"   # Browser interface
+      - "7687:7687"   # Bolt protocol (used in your app)
     networks:
       - backend
 
