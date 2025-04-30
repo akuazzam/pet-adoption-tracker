@@ -1,6 +1,7 @@
 import os
 from pymongo import MongoClient
 from dotenv import load_dotenv
+from datetime import datetime
 
 # Load .env file
 load_dotenv()
@@ -88,4 +89,33 @@ def insert_follow_up_report(follow_up_id, report_date, pet_id, user_id, review_t
 
 def get_follow_ups_for_pet(pet_id):
     return list(follow_up_reports.find({"pet_id": pet_id}))
+
+def get_all_unique_tags():
+    return pet_profiles.distinct("tags")
+
+def find_pets_by_tags(tag_list):
+    return list(pet_profiles.find({"tags": {"$all": tag_list}}))
+
+def get_liked_tags_by_user(user_id, min_rating=4):
+    feedback = user_feedback.find({"user_id": user_id, "rating": {"$gte": min_rating}})
+    liked_pet_ids = [fb["pet_id"] for fb in feedback]
+    if not liked_pet_ids:
+        return []
+
+    return pet_profiles.distinct("tags", {"pet_id": {"$in": liked_pet_ids}})
+
+def add_image_to_pet_gallery(pet_id, image_url):
+    return pet_profiles.update_one(
+        {"pet_id": pet_id},
+        {"$push": {"gallery": image_url}}
+    )
+
+def get_average_rating_for_pet(pet_id):
+    pipeline = [
+        {"$match": {"pet_id": pet_id}},
+        {"$group": {"_id": "$pet_id", "avg_rating": {"$avg": "$rating"}}}
+    ]
+    result = list(user_feedback.aggregate(pipeline))
+    return result[0]["avg_rating"] if result else None
+
 
