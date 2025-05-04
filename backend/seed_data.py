@@ -1,7 +1,8 @@
 from faker import Faker
 import random
 from queries.sql_queries import add_user, add_shelter, add_pet, add_adoption
-from queries.mongo_db_queries import insert_pet_profile, insert_user_feedback
+from queries.mongo_db_queries import insert_pet_profile, insert_user_feedback, insert_follow_up_report
+from queries.mongo_db_queries import pet_profiles
 from queries.graph_queries import (
     create_user as create_user_neo4j,
     create_pet as create_pet_neo4j,
@@ -10,7 +11,9 @@ from queries.graph_queries import (
     create_adopted_relationship,
     create_tag,
     link_pet_to_tag,
-    link_user_to_preference_tag
+    link_user_to_preference_tag,
+    create_likes_edge,
+    create_friend_edge
 )
 
 fake = Faker()
@@ -43,8 +46,6 @@ pet_name_pool = [
     "BreezyTail", "FloppyFur", "TiredPaws", "QuietBounce", "NoisyMittens", "SassySnout", "PlayfulToes", "CozyBark", "WhiskeryShadow", "FeistyFang",
     "ZippyNose", "BouncyMittens", "CleverClaw", "LoyalStripe", "ChillEars", "FurryWhiskers", "JumpyPaws", "PurringBean", "JoyfulTail", "GiddyFur"
 ]
-print(len(pet_name_pool))
-
 users = []
 shelters = []
 pets = []
@@ -72,7 +73,16 @@ for _ in range(50):
     )
     create_user_neo4j(user['id'], user['name'])
     users.append(user)
-
+# ── Give every user 1–3 random preference tags ─────────────────────────
+for user in users:
+    # pick between 1 and 3 tags from your tags_pool
+    pref_tags = random.sample(tags_pool, k=random.randint(1, 3))
+    for tag in pref_tags:
+        # make sure the tag node exists
+        create_tag(tag)
+        # link the user to that tag
+        link_user_to_preference_tag(user['id'], tag)
+        
 # Create 100 pets
 for i in range(100):
     shelter = random.choice(shelters)
@@ -89,7 +99,7 @@ for i in range(100):
         shelter_id=shelter['id'],
         status="available"
     )
-    create_pet_neo4j(pet['id'], pet['name'])
+    create_pet_neo4j(pet['id'], pet['name'], pet['breed'])
     link_pet_to_shelter(pet['id'], shelter['id'])
     pets.append(pet)
 
@@ -106,15 +116,53 @@ for i in range(100):
         create_tag(tag)
         link_pet_to_tag(pet['id'], tag)
 
+# ── Seed some LIKES ────────────────────────────────────────────────────
+for user in users:
+    # each user likes between 3 and 10 random pets
+    liked = random.sample(pets, k=random.randint(3,10))
+    for pet in liked:
+        create_likes_edge(user['id'], pet['id'])
+
+# ── Seed some FRIEND_OF edges ─────────────────────────────────────────
+for user in users:
+    # connect each user to 2–5 random friends
+    friends = random.sample([u for u in users if u != user], k=random.randint(2,5))
+    for fr in friends:
+        create_friend_edge(user['id'], fr['id'])
+
+
 # Create 35 adoptions
+adoptions = []
 for _ in range(35):
     user = random.choice(users)
-    pet = random.choice(pets)
-    add_adoption(user['id'], pet['id'], success_notes="Successful match!")
+    pet  = random.choice(pets)
+    adoption = add_adoption(user['id'], pet['id'], success_notes="Successful match!")
+    adoptions.append(adoption)
     create_adopted_relationship(user['id'], pet['id'])
 
-    insert_user_feedback(user['id'], pet['id'], "Loved the pet!", random.randint(4, 5))
-    for tag in random.sample(tags_pool, k=1):
-        link_user_to_preference_tag(user['id'], tag)
+    # Mongo feedback
+    insert_user_feedback(user['id'], pet['id'], "Loved the pet!", random.randint(4,5))
+    # Link real pet tags
+    profile = pet_profiles.find_one({"pet_id": pet['id']})
+    for tag in profile.get("tags", []):
+        if random.random() < 0.5:
+            link_user_to_preference_tag(user['id'], tag)
+
+# ── 5) Follow-up reports ────────────────────────────────────
+from datetime import timedelta
+for adoption in adoptions:
+    for i in range(random.randint(1,3)):
+            visit = adoption['adoption_date'] + timedelta(days=7*(i+1))
+            insert_follow_up_report(
+            follow_up_id=f"{adoption['id']}-{i}",
+            report_date=visit.isoformat(),
+            pet_id=adoption['pet_id'],
+            user_id=adoption['user_id'],
+            review_text=random.choice([
+                "Pet is thriving!","Adjusting well to home","Happy and healthy!"
+            ]),
+            picture=random.choice([fake.image_url(), None]),
+            energy_level=random.choice(["low","medium","high"])
+        )
 
 print("✅ Expanded fake data with proper pet names successfully seeded.")
