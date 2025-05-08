@@ -53,7 +53,6 @@ def get_top_recommended_pets_for_user(user_id, top_n = 5):
     # 1. Tags the user prefers
     preferred_tags = _get_preferred_tags(user_id)
     # 2. Pet IDs the user has liked or adopted already
-    excluded_ids = _get_interacted_pet_ids(user_id)
     
     adopted_ids = set(get_adopted_pet_ids(user_id))
 
